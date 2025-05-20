@@ -28,7 +28,7 @@ Submit the slurm script using sbatch to launch the script.
 
 Use pretrain.slurm file for launching your pretraining jobs using the processed qwen weights and data. Change the number of steps, seq_len appropriately.
 
-Make sure total GPUs (world size) = TP*DP*PP
+Make sure total GPUs (world size) = TP * DP * PP
 
 And for calculating the steps. example:
 - number of sequences: global batch size * batch accumulation steps * dp = 8 * 4 * 1 = 32
