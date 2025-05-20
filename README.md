@@ -31,9 +31,9 @@ Use pretrain.slurm file for launching your pretraining jobs using the processed 
 Make sure total GPUs (world size) = TP*DP*PP
 
 And for calculating the steps. example:
-# number of sequences: global batch size * batch accumulation steps * dp = 8 * 4 * 1 = 32
-# full bsz: seqlen * global batch size * batch accumulation steps * dp = 8192 * 32 = 262144
-# one epoch in steps: 1000688526(total tokens) / 262144 = 3817 (number of steps in 1 epoch)
+- number of sequences: global batch size * batch accumulation steps * dp = 8 * 4 * 1 = 32
+- full bsz: seqlen * global batch size * batch accumulation steps * dp = 8192 * 32 = 262144
+- one epoch in steps: 1000688526(total tokens) / 262144 = 3817 (number of steps in 1 epoch)
 
 
 Step 3: convert back and SFT
