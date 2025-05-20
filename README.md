@@ -1,47 +1,127 @@
 # pretrainLM
-One stop instructions for continued pretraining for LMs
 
-In this repo, there will instructions on continuing the pretraining for Qwen-2.5 and Llama-3 models
+A one-stop repository containing comprehensive instructions, scripts, and resources for continued pretraining and supervised fine-tuning (SFT) of large language models (LLMs), specifically tailored for chemical domain models including **Qwen-2.5** and **Llama-3.1**.
 
-Pretraining and SFT for Qwen-2.5
-================================
-For the CP of Qwen-2.5 models we will be using the modified Megatron pipeline from Alibaba - https://github.com/alibaba/Pai-Megatron-Patch.
-There were multiple versions of the pipeline, but in this repo I will be adding the further modified repo to make it work on CSCS and Kuma (found in their respective folders.)
+## Overview
 
-Step 1: Convert HF to megatron format:
---------------------------------------
-Megatron uses its own custom framework of weights for pretraining. To convert them, use the `convert.slurm` script for the appropriate cluster. You will have to change the following before running the script: (Might feel like a lot to change, but if you open the slurm script it will be the first few lines after the srun bash command)
-1. Load your own environment (I had modules in dev_env and torch_env)
-2. Change the path to your toolkit folder correctly
-3. PYTHONPATH (change to the appropriate Pai-Megatron-Patch and PAI-Megatron-LM-240718 folder paths)
-4. Change TP, PP appropriately. (PP is always 1 unless you want pipeline parallelism. And TP should be 2 for models lesser than equal to 3b, and can be bigger for other models). Make sure to change nnodes and GPUS_PER_NODE appropriately after changing TP.
-5. Change source and target path. source is wehere you have stored your HF models and target will be the path where your megatron checkpoints will be saved.
+This repository provides:
 
-Submit the slurm scrip using sbatch to launch the script.
+* Complete setup guides for continued pretraining using Megatron and Nanotron.
+* Conversion scripts for seamless transitions between Hugging Face and Megatron checkpoints.
+* Preprocessing pipelines for chemical data integration.
+* Resources for generating synthetic chemical data.
 
+---
 
-Step 2: prepare data for pretraining and pretrain:
---------------------------------------------------
-Similarly we have to convert the pretraining data (right now in jsonl format) to the megatron format. Use the script `process_data.slurm` for this. Change the same set of parameters as above and run the script. In addition to this, you can change the hyperparameters relating to sequence_len, pad_len, batch_size, etc.
+## Pretraining and SFT for Qwen-2.5
 
-Submit the slurm script using sbatch to launch the script.
+### Prerequisites
 
-Use pretrain.slurm file for launching your pretraining jobs using the processed qwen weights and data. Change the number of steps, seq_len appropriately.
+* Modified Megatron pipeline from Alibaba: [Pai-Megatron-Patch](https://github.com/alibaba/Pai-Megatron-Patch)
 
-Make sure total GPUs (world size) = TP * DP * PP
+### Directory Structure
 
-And for calculating the steps. example:
-- number of sequences: global batch size * batch accumulation steps * dp = 8 * 4 * 1 = 32
-- full bsz: seqlen * global batch size * batch accumulation steps * dp = 8192 * 32 = 262144
-- one epoch in steps: 1000688526(total tokens) / 262144 = 3817 (number of steps in 1 epoch)
+* **Pretraining data**: `/work/liac/pretrain_data`
+* **SFT data**: `/work/liac/sft_data`
 
+### Step-by-step Instructions
 
-Step 3: convert back and SFT
-----------------------------
-Use the convert_back.slurm script to convert megatron to HF back again. 
-You have a pretrained model now that you can use for benchmarks and for further SFT.
-Note: You will have to convert the pretrained model to HF, and then to megatron for SFT, and you cannot use the pretrained megatron weights directly.
-Use the prepare_sft.slurm and run_sft.sbatch script to process the data and to run the SFT using megatron. Make sure to change the appropriate parameters for your run.
+#### Step 1: Convert HF Checkpoints to Megatron Format
 
-Right now there is no support for wandb in these runs, but all your model diagnostics will show up in the out file.
+Use `convert.slurm`:
+
+Modify the following variables at the top of the script:
+
+* Environment modules (`dev_env`, `torch_env`)
+* Toolkit path
+* `PYTHONPATH` to `Pai-Megatron-Patch` and `PAI-Megatron-LM-240718`
+* Tensor Parallelism (`TP`) and Pipeline Parallelism (`PP`). Use:
+
+  * TP = 2 for models ≤ 3B
+  * PP = 1 (default unless pipeline parallelism is required)
+* Node and GPU count (`nnodes`, `GPUS_PER_NODE`)
+* Source path (HF checkpoints)
+* Target path (Megatron checkpoints)
+
+Launch script:
+
+```bash
+sbatch convert.slurm
+```
+
+#### Step 2: Prepare Data & Run Pretraining
+
+Use `process_data.slurm`:
+
+* Modify paths, sequence length, padding, batch size as needed.
+
+Launch preprocessing:
+
+```bash
+sbatch process_data.slurm
+```
+
+Pretraining with `pretrain.slurm`:
+
+* Adjust `number_of_steps`, `seq_len`, and GPU configurations.
+
+Calculate total steps:
+
+```bash
+# Example:
+# global_batch_size * batch_accumulation_steps * dp = 8 * 4 * 1 = 32
+# full_batch_size = seq_len * global_batch_size * accumulation_steps * dp
+# steps_per_epoch = total_tokens / full_batch_size
+```
+
+Launch pretraining:
+
+```bash
+sbatch pretrain.slurm
+```
+
+#### Step 3: Convert Back & Run SFT
+
+Convert Megatron checkpoints back to Hugging Face format using `convert_back.slurm`. Note that for SFT, convert the HF checkpoint again back to Megatron format using `prepare_sft.slurm` and then launch SFT with `run_sft.sbatch`.
+
+Diagnostic logs will appear in the output files (currently no W\&B integration).
+
+---
+
+## Pretraining Llama-3.1
+
+Minimal modifications required for Megatron-based pretraining. Refer to:
+
+* Llama checkpoint conversion: `qwen_pretrain/kuma/Pai-Megatron-Patch/toolkits/model_checkpoints_convertor/llama`
+
+Nanotron pretraining setup (CSCS specific) available here:
+
+* [Nanotron Llama CP Setup](https://docs.google.com/document/d/1YBC5pFcrwh2Mo98vL1xQXSgUCTGyzX3bEKBpciRm-Lw/edit?usp=sharing)
+
+---
+
+## Preprocessing Data with SMILES
+
+Scripts to integrate chemical structures (SMILES) into textual datasets:
+
+1. **Extract chemical entities**:
+
+   * Run `chem_extract.py` (requires `chemdataextractor2`)
+   * Outputs pickle with entities' positions
+
+2. **Interleave SMILES into text**:
+
+   * Run `fineweb_smiles.py` (requires `empty4.pkl` and `string2smiles3.pkl` for entity handling)
+
+---
+
+## Synthetic Data Generation
+
+Use [SMILESbench](https://github.com/schwallergroup/SMILESbench/tree/main) for generating synthetic chemical data (used previously for benchmarking and exam purposes).
+
+---
+
+### Contributing
+
+Feel free to open issues, submit PRs, or contact maintainers for any questions or suggestions.
 
